@@ -1580,6 +1580,18 @@ jobs:
           CONFIG_KSU_SUSFS_SUS_MAP=y
           EOF
 
+          # SukiSU v4.3.0（Release 提交 1cfa5734）的 pkg_observer.c / dispatch.c
+          # 无条件调用 susfs_parse_priority_app_strings / susfs_set_priority_uid_filter，
+          # 而 susfs.h 仅在 CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER 下声明它们，且上游
+          # 两个仓库均未提供该符号的 Kconfig 定义：不开会报 undeclared function，
+          # 不开还会让 fs/susfs.c 的静态辅助函数变成 unused（-Werror 直接失败）。
+          # 检测到驱动引用时补 Kconfig 定义并显式启用
+          if grep -rq "susfs_parse_priority_app_strings" "$KERNEL_ROOT/KernelSU/kernel" 2>/dev/null; then
+            printf '\nconfig KSU_SUSFS_PRIORITY_UID_FILTER\n\tbool "SUSFS priority uid filter"\n\tdepends on KSU_SUSFS\n\tdefault y\n\n' >> "$KERNEL_ROOT/KernelSU/kernel/Kconfig"
+            echo "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=y" >> "$DEFCONFIG"
+            echo "已补 KSU_SUSFS_PRIORITY_UID_FILTER 的 Kconfig 定义并启用"
+          fi
+
       - name: 配置内核名称
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
